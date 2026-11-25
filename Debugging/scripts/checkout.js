@@ -1,0 +1,144 @@
+/*
+====================================
+Roll Number : 261FB04039
+Project     : CampusCafe
+Technology  : HTML, CSS, JavaScript
+====================================
+*/
+
+const checkoutItemsEl = document.getElementById("checkout-items");
+const subtotalEl = document.getElementById("subtotal");
+const taxEl = document.getElementById("tax");
+const discountEl = document.getElementById("discount");
+const grandTotalEl = document.getElementById("grand-total");
+
+const promoInput = document.getElementById("promo-input");
+const applyPromoBtn = document.getElementById("apply-promo-btn");
+const promoMsgEl = document.getElementById("promo-msg");
+
+const orderForm = document.getElementById("order-form");
+const studentNameInput = document.getElementById("student-name");
+const rollNumberInput = document.getElementById("roll-number");
+const orderMsgEl = document.getElementById("order-msg");
+
+let cart = [];
+
+try {
+  const savedCart = JSON.parse(localStorage.getItem("campus_cart"));
+  if (Array.isArray(savedCart)) {
+    cart = savedCart
+      .filter((item) => item && Number.isFinite(Number(item.id)))
+      .map((item) => ({
+        id: Number(item.id),
+        name: String(item.name || ""),
+        price: Number(item.price) || 0,
+        qty: Math.max(1, Number(item.qty) || 1)
+      }));
+  }
+} catch (error) {
+  cart = [];
+}
+let discountAmount = 0;
+
+function calculateSubtotal() {
+  return cart.reduce((sum, item) => sum + Number(item.price) * (item.qty || 1), 0);
+}
+
+function renderCheckout() {
+  checkoutItemsEl.innerHTML = "";
+
+  if (cart.length === 0) {
+    checkoutItemsEl.innerHTML = '<li class="empty-state">No items found in your order.</li>';
+  } else {
+    cart.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "cart-row";
+      li.innerHTML = `
+        <span>${item.name} × ${item.qty || 1}</span>
+        <span>₹${(Number(item.price) * (item.qty || 1)).toFixed(2)}</span>
+      `;
+      checkoutItemsEl.appendChild(li);
+    });
+  }
+
+  const subtotal = calculateSubtotal();
+  const tax = subtotal * 0.05;
+  const grandTotal = Math.max(0, subtotal + tax - discountAmount);
+
+  subtotalEl.textContent = subtotal.toFixed(2);
+  taxEl.textContent = tax.toFixed(2);
+  discountEl.textContent = discountAmount.toFixed(2);
+  grandTotalEl.textContent = grandTotal.toFixed(2);
+}
+
+applyPromoBtn.addEventListener("click", () => {
+  const code = promoInput.value.trim().toUpperCase();
+  const subtotal = calculateSubtotal();
+  discountAmount = 0;
+
+  if (code !== "STUDENT15") {
+    promoMsgEl.className = "msg-error";
+    promoMsgEl.textContent = "Invalid promo code.";
+  } else if (subtotal < 150) {
+    promoMsgEl.className = "msg-error";
+    promoMsgEl.textContent = "STUDENT15 requires a subtotal of at least ₹150.";
+  } else {
+    discountAmount = subtotal * 0.15;
+    promoMsgEl.className = "msg-success";
+    promoMsgEl.textContent = "STUDENT15 applied successfully.";
+  }
+
+  renderCheckout();
+});
+
+promoInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyPromoBtn.click();
+  }
+});
+
+promoInput.addEventListener("input", () => {
+  if (promoMsgEl.classList.contains("msg-error")) {
+    promoMsgEl.textContent = "";
+  }
+});
+
+[studentNameInput, rollNumberInput].forEach((input) => {
+  input.addEventListener("input", () => {
+    if (orderMsgEl.classList.contains("msg-error")) {
+      orderMsgEl.textContent = "";
+    }
+  });
+});
+
+orderForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = studentNameInput.value.trim();
+  const rollNumber = rollNumberInput.value.trim();
+
+  if (cart.length === 0) {
+    orderMsgEl.className = "msg-error";
+    orderMsgEl.textContent = "Cannot confirm an empty cart.";
+    return;
+  }
+  if (!name || !rollNumber) {
+    orderMsgEl.className = "msg-error";
+    orderMsgEl.textContent = "Please enter both your full name and roll number.";
+    return;
+  }
+
+  const orderId = "CC-" + Date.now().toString().slice(-8);
+  orderMsgEl.className = "msg-success";
+  orderMsgEl.textContent = `Order confirmed! Your Order ID is ${orderId}.`;
+  localStorage.removeItem("campus_cart");
+  cart.length = 0;
+  discountAmount = 0;
+  promoInput.value = "";
+  promoMsgEl.textContent = "";
+  studentNameInput.value = "";
+  rollNumberInput.value = "";
+  renderCheckout();
+});
+
+renderCheckout();
